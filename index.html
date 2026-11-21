@@ -92,8 +92,106 @@ body {
 		</style>
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+<link rel="manifest" href="index.manifest.json">
 
-	</head>
+	<!-- dsh-web-patch -->
+<style>
+  /* 加载页：更清楚的进度 + 说明 */
+  #status { background: radial-gradient(circle at 50% 42%, #152036 0%, #04060c 72%) !important; }
+  #status-progress { width: min(74vw, 640px) !important; height: 14px !important;
+    border: 0; border-radius: 8px; background: #101726; }
+  #status-progress::-webkit-progress-bar { background: #101726; border-radius: 8px; }
+  #status-progress::-webkit-progress-value {
+    background: linear-gradient(90deg, #4fd1c5, #7aa2ff); border-radius: 8px; }
+  #status-progress::-moz-progress-bar { background: #7aa2ff; border-radius: 8px; }
+  #dsh-load { color: #cfe0ff; text-align: center; margin-top: 14px;
+    font: 600 18px/1.5 ui-sans-serif, system-ui, "Microsoft YaHei", sans-serif; }
+  #dsh-load small { display: block; margin-top: 8px; color: #7f8ea8;
+    font: 400 13px/1.6 ui-sans-serif, system-ui, "Microsoft YaHei", sans-serif; }
+
+  /* 竖屏提示：纯 CSS，不依赖 JS，转到横屏自动消失 */
+  #dsh-rotate { position: fixed; inset: 0; z-index: 2147483000; display: none;
+    align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+    background: rgba(3, 6, 12, .96); color: #e8f0ff; text-align: center;
+    font: 600 22px/1.5 ui-sans-serif, system-ui, "Microsoft YaHei", sans-serif; }
+  @media (orientation: portrait) and (pointer: coarse) { #dsh-rotate { display: flex; } }
+  #dsh-rotate .icon { font-size: 54px; animation: dsh-rot 1.9s ease-in-out infinite; }
+  @keyframes dsh-rot { 0%, 38% { transform: rotate(0deg); } 62%, 100% { transform: rotate(90deg); } }
+  #dsh-rotate small { color: #8ea0bd; font-weight: 400; font-size: 14px; }
+</style>
+<div id="dsh-rotate"><div class="icon">&#128241;</div><div>请把手机横过来</div>
+  <small>横屏才会铺满屏幕</small></div>
+<script>
+(function () {
+  'use strict';
+
+  // ---- 1. 全屏 + 锁横屏：浏览器只允许在用户手势里请求 ----
+  var tried = 0;
+  function immersive() {
+    if (tried > 4) { return; }
+    var el = document.getElementById('canvas') || document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) {
+      tried++;
+      el.requestFullscreen({ navigationUI: 'hide' }).catch(function () {});
+    }
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(function () {});
+    }
+  }
+  window.addEventListener('pointerdown', immersive, { capture: true, passive: true });
+  window.addEventListener('touchend', immersive, { capture: true, passive: true });
+
+  // ---- 2. 加载进度写成百分比 ----
+  function startProgressText() {
+    var status = document.getElementById('status');
+    var prog = document.getElementById('status-progress');
+    if (!status || !prog || document.getElementById('dsh-load')) { return; }
+    var box = document.createElement('div');
+    box.id = 'dsh-load';
+    box.innerHTML = '<span id="dsh-pct">0%</span><small>首次打开约 10 MB，之后走本地缓存，几秒进游戏</small>';
+    status.appendChild(box);
+    (function tick() {
+      if (!document.getElementById('status')) { return; }
+      var max = parseFloat(prog.max || 0);
+      var val = parseFloat(prog.value || 0);
+      var pct = document.getElementById('dsh-pct');
+      if (pct && max > 0) { pct.textContent = Math.min(100, Math.round(val / max * 100)) + '%'; }
+      requestAnimationFrame(tick);
+    })();
+  }
+
+  // ---- 3. service worker：wasm / pck 缓存到本地，第二次打开不再下载 ----
+  function offlineCache() {
+    if (!('serviceWorker' in navigator) || location.protocol !== 'https:') { return; }
+    navigator.serviceWorker.register('index.service.worker.js').then(function (reg) {
+      reg.update().catch(function () {});
+      // 旧版本还占着缓存时，让新的 SW 立刻接管（这样重新发布后不会一直看到旧版本）
+      var takeover = function (worker) {
+        if (!worker) { return; }
+        worker.addEventListener('statechange', function () {
+          if (worker.state === 'installed' && reg.waiting) {
+            reg.waiting.postMessage('claim');
+          }
+        });
+      };
+      takeover(reg.installing);
+      reg.addEventListener('updatefound', function () { takeover(reg.installing); });
+      if (reg.waiting) { reg.waiting.postMessage('claim'); }
+    }).catch(function () {});
+  }
+
+  function boot() {
+    startProgressText();
+    offlineCache();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+</head>
 	<body>
 		<canvas id="canvas">
 			Your browser does not support the canvas tag.
@@ -111,7 +209,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":797240,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":853396,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
