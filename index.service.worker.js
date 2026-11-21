@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1795261451|12645285';
+const CACHE_VERSION = '1795261582|12838011';
 /** @type {string} */
 const CACHE_PREFIX = 'Neon Arena 霓虹竞技场-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
